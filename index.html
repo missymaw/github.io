@@ -1,0 +1,442 @@
+import { useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, Treemap } from "recharts";
+
+// ── DATA ──────────────────────────────────────────────────────────────────
+const KPIs = [
+  { label: "Total Productos", value: "4,652", sub: "en catálogo", icon: "◈", color: "#00E5C3" },
+  { label: "Valor Neto Total", value: "$497,564", sub: "suma precio neto", icon: "⬡", color: "#FFB800" },
+  { label: "Margen Promedio", value: "28.2%", sub: "sobre precio", icon: "◆", color: "#FF6B6B" },
+  { label: "Precio Promedio", value: "$128.26", sub: "por producto", icon: "◉", color: "#A78BFA" },
+];
+
+const deptoNeto = [
+  { name: "PAT 3", neto: 51550, margen: 61.1 },
+  { name: "PAT 1", neto: 48157, margen: 56.9 },
+  { name: "PAT 2", neto: 47200, margen: 54.2 },
+  { name: "GAVETA 1", neto: 33055, margen: 337.2 },
+  { name: "OTC 2", neto: 29865, margen: 31.8 },
+  { name: "OTC 3", neto: 21953, margen: 27.0 },
+  { name: "DAMA", neto: 21182, margen: 21.9 },
+  { name: "ANT PAT 1", neto: 18645, margen: 72.9 },
+  { name: "GEN 7", neto: 17383, margen: 64.7 },
+  { name: "PAÑALES", neto: 17264, margen: 31.9 },
+];
+
+const deptoProductos = [
+  { name: "ABARROTES", count: 554 },
+  { name: "CURACION", count: 373 },
+  { name: "MOSTRADOR", count: 298 },
+  { name: "REFRI B", count: 206 },
+  { name: "CABALLERO", count: 191 },
+  { name: "OTC 2", count: 191 },
+  { name: "DAMA", count: 189 },
+  { name: "OTC 3", count: 185 },
+  { name: "OTC 4", count: 183 },
+  { name: "PANEL 2", count: 148 },
+];
+
+const proveedores = [
+  { name: "CITYFARMA", count: 1811, neto: 295699, margen: 36.6 },
+  { name: "FANASA", count: 2272, neto: 149056, margen: 21.7 },
+  { name: "NADRO", count: 398, neto: 37405, margen: 26.9 },
+  { name: "ROSARIO", count: 35, neto: 2464, margen: 34.7 },
+  { name: "FL", count: 30, neto: 1970, margen: 19.4 },
+];
+
+const distribucionMargen = [
+  { rango: "< 0%", count: 48, color: "#FF4757" },
+  { rango: "0–10%", count: 2010, color: "#FF7F50" },
+  { rango: "10–20%", count: 785, color: "#FFB800" },
+  { rango: "20–30%", count: 536, color: "#00E5C3" },
+  { rango: "30–50%", count: 571, color: "#4ECDC4" },
+  { rango: "> 50%", count: 702, color: "#A78BFA" },
+];
+
+const rangosPrecios = [
+  { rango: "< $10", count: 175 },
+  { rango: "$10–50", count: 1739 },
+  { rango: "$50–100", count: 898 },
+  { rango: "$100–500", count: 1097 },
+  { rango: "> $500", count: 200 },
+];
+
+const margenNegativo = [
+  { nombre: "SERETIDE DISKUS", depto: "GAVETA 1", margen: -345 },
+  { nombre: "LUXTER OMEGA 3", depto: "OTC 2", margen: -274.2 },
+  { nombre: "TRUSOPT DORZOLAMIDA", depto: "PAT 3", margen: -261 },
+  { nombre: "PRETERAX PERINDOPRIL", depto: "PAT 3", margen: -245.5 },
+  { nombre: "ARTELAC NIGHTTIME GEL", depto: "PAT 1", margen: -236 },
+  { nombre: "DIPROSPAN HIPAK", depto: "PAT 1", margen: -219.2 },
+  { nombre: "VASCUFLOW DOBESILATO", depto: "PAT 3", margen: -197.4 },
+  { nombre: "PROTEFLOR LACTOBAC.", depto: "OTC 1", margen: -196.1 },
+];
+
+const treemapData = deptoNeto.map(d => ({ name: d.name, size: d.neto, margen: d.margen }));
+
+// ── CUSTOM TOOLTIP ────────────────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div style={{ background: "rgba(10,14,26,0.97)", border: "1px solid #1e2d4d", borderRadius: 8, padding: "10px 14px" }}>
+        <p style={{ color: "#9CA3AF", fontSize: 11, marginBottom: 4 }}>{label}</p>
+        {payload.map((p, i) => (
+          <p key={i} style={{ color: p.color || "#00E5C3", fontSize: 13, fontWeight: 700 }}>
+            {p.name}: {typeof p.value === "number" && p.value > 1000 ? `$${p.value.toLocaleString()}` : p.value}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+// ── TREEMAP CONTENT ───────────────────────────────────────────────────────
+const COLORS_TREE = ["#00E5C3","#FFB800","#FF6B6B","#A78BFA","#4ECDC4","#FF7F50","#60A5FA","#34D399","#F472B6","#FBBF24"];
+
+// ── MAIN COMPONENT ────────────────────────────────────────────────────────
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState("overview");
+
+  return (
+    <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", background: "#070A14", minHeight: "100vh", color: "#E2E8F0", padding: "28px 24px" }}>
+      
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 8, height: 8, background: "#00E5C3", borderRadius: "50%", boxShadow: "0 0 12px #00E5C3" }} />
+            <span style={{ fontSize: 11, color: "#4B5563", letterSpacing: 3, textTransform: "uppercase" }}>Sistema de Inventario</span>
+          </div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: "#F1F5F9", letterSpacing: -0.5, margin: 0 }}>
+            Dashboard de Catálogo
+            <span style={{ color: "#00E5C3", marginLeft: 8 }}>Farmacia</span>
+          </h1>
+          <p style={{ color: "#4B5563", fontSize: 12, marginTop: 4, letterSpacing: 1 }}>27 / 02 / 2026 — 4,652 SKUs analizados</p>
+        </div>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 6, background: "#0D1117", borderRadius: 10, padding: 4, border: "1px solid #1E293B" }}>
+          {["overview", "margenes", "proveedores", "alertas"].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              padding: "7px 16px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontFamily: "inherit",
+              letterSpacing: 1, textTransform: "uppercase", fontWeight: 700,
+              background: activeTab === tab ? "#00E5C3" : "transparent",
+              color: activeTab === tab ? "#070A14" : "#4B5563",
+              transition: "all 0.2s"
+            }}>{tab}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI CARDS */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+        {KPIs.map((k, i) => (
+          <div key={i} style={{
+            background: "linear-gradient(135deg, #0D1117 0%, #111827 100%)",
+            border: `1px solid ${k.color}22`, borderRadius: 14, padding: "20px 22px",
+            position: "relative", overflow: "hidden"
+          }}>
+            <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.04, color: k.color }}>{k.icon}</div>
+            <div style={{ fontSize: 22, color: k.color, fontWeight: 800, marginBottom: 2 }}>{k.icon}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</div>
+            <div style={{ fontSize: 13, color: "#F1F5F9", fontWeight: 600, marginTop: 6 }}>{k.label}</div>
+            <div style={{ fontSize: 10, color: "#4B5563", marginTop: 3, letterSpacing: 1 }}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── TAB: OVERVIEW ─────────────────────────── */}
+      {activeTab === "overview" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+          {/* Valor Neto por Departamento */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Valor Neto por Departamento (Top 10)</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={deptoNeto} layout="vertical" margin={{ left: 10, right: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" horizontal={false} />
+                <XAxis type="number" tick={{ fill: "#4B5563", fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 10 }} width={68} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="neto" name="Neto $" radius={[0, 4, 4, 0]}>
+                  {deptoNeto.map((_, i) => <Cell key={i} fill={`hsl(${168 + i * 8}, 80%, ${55 - i * 2}%)`} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Distribución Margen */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Distribución de Márgenes</h3>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <ResponsiveContainer width="55%" height={220}>
+                <PieChart>
+                  <Pie data={distribucionMargen} dataKey="count" nameKey="rango" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3}>
+                    {distribucionMargen.map((d, i) => <Cell key={i} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => [v, "Productos"]} contentStyle={{ background: "#0D1117", border: "1px solid #1E293B" }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ flex: 1 }}>
+                {distribucionMargen.map((d, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
+                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>{d.rango}</span>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: d.color }}>{d.count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Productos por depto */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}># Productos por Departamento (Top 10)</h3>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={deptoProductos} margin={{ left: 0, right: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: "#4B5563", fontSize: 9 }} angle={-35} textAnchor="end" height={50} />
+                <YAxis tick={{ fill: "#4B5563", fontSize: 10 }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Productos" fill="#FFB800" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Rangos de precio */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Distribución Rangos de Precio</h3>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={rangosPrecios} margin={{ left: 0, right: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="rango" tick={{ fill: "#9CA3AF", fontSize: 10 }} />
+                <YAxis tick={{ fill: "#4B5563", fontSize: 10 }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Productos" radius={[4, 4, 0, 0]}>
+                  {rangosPrecios.map((_, i) => <Cell key={i} fill={`hsl(${270 - i * 30}, 70%, 65%)`} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: MÁRGENES ─────────────────────────── */}
+      {activeTab === "margenes" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+          {/* Margen promedio por depto */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px", gridColumn: "1 / -1" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Margen % Promedio vs Valor Neto por Departamento</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={deptoNeto} margin={{ left: 0, right: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 10 }} />
+                <YAxis yAxisId="left" tick={{ fill: "#4B5563", fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fill: "#4B5563", fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 400]} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar yAxisId="left" dataKey="neto" name="Neto $" fill="#00E5C3" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
+                <Bar yAxisId="right" dataKey="margen" name="Margen %" fill="#FFB800" radius={[4, 4, 0, 0]} fillOpacity={0.6} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Stats de margen */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Resumen Márgenes</h3>
+            {[
+              { label: "Margen promedio global", value: "28.2%", color: "#00E5C3" },
+              { label: "Productos margen > 50%", value: "702 SKUs", color: "#A78BFA" },
+              { label: "Productos margen 0–10%", value: "2,010 SKUs", color: "#FF7F50" },
+              { label: "Productos margen negativo", value: "48 SKUs", color: "#FF4757" },
+              { label: "Con descuento activo", value: "294 SKUs", color: "#FFB800" },
+              { label: "Precio tipo FIJO", value: "4,062 SKUs", color: "#4ECDC4" },
+              { label: "Con IVA 16%", value: "1,590 SKUs", color: "#60A5FA" },
+              { label: "Venta a granel habilitada", value: "2,508 SKUs", color: "#34D399" },
+            ].map((item, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #111827" }}>
+                <span style={{ fontSize: 11, color: "#6B7280" }}>{item.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: item.color }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Departamentos con mejor margen */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Top Departamentos por Margen %</h3>
+            {[
+              { name: "GAVETA 1", margen: 337.2, count: 28 },
+              { name: "ANT PAT 1", margen: 72.9, count: 53 },
+              { name: "GEN 7", margen: 64.7, count: 138 },
+              { name: "PAT 3", margen: 61.1, count: 142 },
+              { name: "PAT 1", margen: 56.9, count: 141 },
+              { name: "PAT 2", margen: 54.2, count: 125 },
+              { name: "OTC 2", margen: 31.8, count: 191 },
+              { name: "PAÑALES", margen: 31.9, count: 112 },
+            ].map((d, i) => (
+              <div key={i} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>{d.name} <span style={{ color: "#374151" }}>({d.count} SKUs)</span></span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: d.margen > 100 ? "#FF6B6B" : "#00E5C3" }}>{d.margen}%</span>
+                </div>
+                <div style={{ background: "#111827", borderRadius: 4, height: 5 }}>
+                  <div style={{ width: `${Math.min(d.margen / 3.4, 100)}%`, height: "100%", borderRadius: 4, background: d.margen > 100 ? "#FF6B6B" : "#00E5C3", transition: "width 0.8s ease" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: PROVEEDORES ─────────────────────── */}
+      {activeTab === "proveedores" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20 }}>
+
+          {/* Tabla proveedores */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Análisis por Proveedor</h3>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Proveedor", "SKUs", "Valor Neto", "Margen %"].map(h => (
+                    <th key={h} style={{ textAlign: "left", fontSize: 9, color: "#374151", letterSpacing: 2, padding: "6px 8px", borderBottom: "1px solid #1E293B" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {proveedores.sort((a,b) => b.neto - a.neto).map((p, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #0D1117" }}>
+                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#E2E8F0", fontWeight: 700 }}>{p.name}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#9CA3AF" }}>{p.count.toLocaleString()}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#FFB800", fontWeight: 700 }}>${p.neto.toLocaleString()}</td>
+                    <td style={{ padding: "12px 8px" }}>
+                      <span style={{ background: p.margen > 30 ? "#00E5C322" : "#FFB80022", color: p.margen > 30 ? "#00E5C3" : "#FFB800", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>{p.margen}%</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: 20, padding: "14px 16px", background: "#070A14", borderRadius: 10, border: "1px solid #1E293B" }}>
+              <p style={{ margin: 0, fontSize: 11, color: "#6B7280", lineHeight: 1.6 }}>
+                <span style={{ color: "#00E5C3", fontWeight: 700 }}>CITYFARMA</span> concentra el <span style={{ color: "#FFB800" }}>59.4%</span> del valor total a pesar de tener menos SKUs, con margen 36.6%.{" "}
+                <span style={{ color: "#A78BFA", fontWeight: 700 }}>FANASA</span> domina en volumen (49% de SKUs) pero con margen más bajo (21.7%).
+              </p>
+            </div>
+          </div>
+
+          {/* Pie de valor neto */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Participación Valor Neto</h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={proveedores} dataKey="neto" nameKey="name" cx="50%" cy="50%" outerRadius={85} paddingAngle={4} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                  {proveedores.map((_, i) => <Cell key={i} fill={["#00E5C3","#FFB800","#FF6B6B","#A78BFA","#4ECDC4"][i]} />)}
+                </Pie>
+                <Tooltip formatter={(v) => [`$${v.toLocaleString()}`, "Neto"]} contentStyle={{ background: "#0D1117", border: "1px solid #1E293B" }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ marginTop: 20 }}>
+              <h4 style={{ fontSize: 11, color: "#6B7280", letterSpacing: 2, margin: "0 0 12px", textTransform: "uppercase" }}>Resurtido activo</h4>
+              <div style={{ display: "flex", gap: 12 }}>
+                {[{ label: "Activo (V)", val: 4005, color: "#00E5C3" }, { label: "Inactivo (N)", val: 646, color: "#374151" }].map((r, i) => (
+                  <div key={i} style={{ flex: 1, background: "#070A14", borderRadius: 10, padding: "12px 14px", border: `1px solid ${r.color}33` }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: r.color }}>{r.val.toLocaleString()}</div>
+                    <div style={{ fontSize: 10, color: "#4B5563", marginTop: 2 }}>{r.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: ALERTAS ─────────────────────────── */}
+      {activeTab === "alertas" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+          {/* Alertas KPI */}
+          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            {[
+              { label: "Productos margen negativo", val: "48 SKUs", sub: "Precio < Costo", color: "#FF4757", icon: "⚠" },
+              { label: "Sin resurtido (N)", val: "646 SKUs", sub: "No se reabastecen", color: "#FF7F50", icon: "⊘" },
+              { label: "Margen muy bajo (0–10%)", val: "2,010 SKUs", sub: "43% del catálogo", color: "#FFB800", icon: "◈" },
+            ].map((a, i) => (
+              <div key={i} style={{ background: `${a.color}11`, border: `1px solid ${a.color}44`, borderRadius: 14, padding: "18px 20px" }}>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>{a.icon}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: a.color }}>{a.val}</div>
+                <div style={{ fontSize: 12, color: "#E2E8F0", fontWeight: 600, marginTop: 4 }}>{a.label}</div>
+                <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>{a.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabla productos margen negativo */}
+          <div style={{ background: "#0D1117", border: "1px solid #FF475722", borderRadius: 14, padding: "22px 24px", gridColumn: "1 / -1" }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#FF4757", letterSpacing: 2, textTransform: "uppercase" }}>
+              ⚠ Productos con Margen Negativo — Pérdida Potencial
+            </h3>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Producto", "Departamento", "Margen %", "Acción Recomendada"].map(h => (
+                    <th key={h} style={{ textAlign: "left", fontSize: 9, color: "#374151", letterSpacing: 2, padding: "6px 10px", borderBottom: "1px solid #1E293B" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {margenNegativo.map((p, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #111827" }}>
+                    <td style={{ padding: "10px", fontSize: 11, color: "#E2E8F0" }}>{p.nombre}</td>
+                    <td style={{ padding: "10px", fontSize: 11, color: "#6B7280" }}>{p.depto}</td>
+                    <td style={{ padding: "10px" }}>
+                      <span style={{ background: "#FF475722", color: "#FF4757", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>{p.margen}%</span>
+                    </td>
+                    <td style={{ padding: "10px", fontSize: 10, color: "#6B7280" }}>
+                      {p.margen < -200 ? "🔴 Revisar precio de compra urgente" : p.margen < -100 ? "🟠 Renegociar con proveedor" : "🟡 Ajustar precio de venta"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Recomendaciones */}
+          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px", gridColumn: "1 / -1" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Recomendaciones Estratégicas</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {[
+                { icon: "01", title: "Optimizar ABARROTES", body: "554 SKUs con margen promedio de solo 13.7%. Revisar estructura de costos o reducir catálogo.", color: "#FFB800" },
+                { icon: "02", title: "Potenciar PAT 1-3", body: "Mayor valor neto ($147k) y margen sólido (56-61%). Priorizar surtido y visibilidad.", color: "#00E5C3" },
+                { icon: "03", title: "Revisar GAVETA 1", body: "Margen de 337% anómalo en 28 productos. Validar si es correcto o hay error de datos.", color: "#FF6B6B" },
+                { icon: "04", title: "Negociar con FANASA", body: "49% del catálogo pero solo 21.7% margen. Renegociar condiciones comerciales.", color: "#A78BFA" },
+              ].map((r, i) => (
+                <div key={i} style={{ background: "#070A14", borderRadius: 10, padding: "16px 18px", border: `1px solid ${r.color}22`, display: "flex", gap: 14 }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: r.color, opacity: 0.4, minWidth: 28 }}>{r.icon}</div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: r.color, marginBottom: 4 }}>{r.title}</div>
+                    <div style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.5 }}>{r.body}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #111827", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 10, color: "#1E293B", letterSpacing: 2 }}>CATÁLOGO · 27022026.CSV · 4,652 REGISTROS</span>
+        <div style={{ display: "flex", gap: 16 }}>
+          {[
+            { label: "IVA 16%", val: "1,590 SKUs" },
+            { label: "Sin IVA", val: "3,062 SKUs" },
+            { label: "Con descuento", val: "294 SKUs" },
+          ].map((s, i) => (
+            <span key={i} style={{ fontSize: 10, color: "#374151" }}>{s.label}: <span style={{ color: "#4B5563" }}>{s.val}</span></span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
