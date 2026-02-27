@@ -1,442 +1,532 @@
-import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, Treemap } from "recharts";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Farmacia — Catálogo 27/02/2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700;800&display=swap');
 
-// ── DATA ──────────────────────────────────────────────────────────────────
-const KPIs = [
-  { label: "Total Productos", value: "4,652", sub: "en catálogo", icon: "◈", color: "#00E5C3" },
-  { label: "Valor Neto Total", value: "$497,564", sub: "suma precio neto", icon: "⬡", color: "#FFB800" },
-  { label: "Margen Promedio", value: "28.2%", sub: "sobre precio", icon: "◆", color: "#FF6B6B" },
-  { label: "Precio Promedio", value: "$128.26", sub: "por producto", icon: "◉", color: "#A78BFA" },
-];
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-const deptoNeto = [
-  { name: "PAT 3", neto: 51550, margen: 61.1 },
-  { name: "PAT 1", neto: 48157, margen: 56.9 },
-  { name: "PAT 2", neto: 47200, margen: 54.2 },
-  { name: "GAVETA 1", neto: 33055, margen: 337.2 },
-  { name: "OTC 2", neto: 29865, margen: 31.8 },
-  { name: "OTC 3", neto: 21953, margen: 27.0 },
-  { name: "DAMA", neto: 21182, margen: 21.9 },
-  { name: "ANT PAT 1", neto: 18645, margen: 72.9 },
-  { name: "GEN 7", neto: 17383, margen: 64.7 },
-  { name: "PAÑALES", neto: 17264, margen: 31.9 },
-];
-
-const deptoProductos = [
-  { name: "ABARROTES", count: 554 },
-  { name: "CURACION", count: 373 },
-  { name: "MOSTRADOR", count: 298 },
-  { name: "REFRI B", count: 206 },
-  { name: "CABALLERO", count: 191 },
-  { name: "OTC 2", count: 191 },
-  { name: "DAMA", count: 189 },
-  { name: "OTC 3", count: 185 },
-  { name: "OTC 4", count: 183 },
-  { name: "PANEL 2", count: 148 },
-];
-
-const proveedores = [
-  { name: "CITYFARMA", count: 1811, neto: 295699, margen: 36.6 },
-  { name: "FANASA", count: 2272, neto: 149056, margen: 21.7 },
-  { name: "NADRO", count: 398, neto: 37405, margen: 26.9 },
-  { name: "ROSARIO", count: 35, neto: 2464, margen: 34.7 },
-  { name: "FL", count: 30, neto: 1970, margen: 19.4 },
-];
-
-const distribucionMargen = [
-  { rango: "< 0%", count: 48, color: "#FF4757" },
-  { rango: "0–10%", count: 2010, color: "#FF7F50" },
-  { rango: "10–20%", count: 785, color: "#FFB800" },
-  { rango: "20–30%", count: 536, color: "#00E5C3" },
-  { rango: "30–50%", count: 571, color: "#4ECDC4" },
-  { rango: "> 50%", count: 702, color: "#A78BFA" },
-];
-
-const rangosPrecios = [
-  { rango: "< $10", count: 175 },
-  { rango: "$10–50", count: 1739 },
-  { rango: "$50–100", count: 898 },
-  { rango: "$100–500", count: 1097 },
-  { rango: "> $500", count: 200 },
-];
-
-const margenNegativo = [
-  { nombre: "SERETIDE DISKUS", depto: "GAVETA 1", margen: -345 },
-  { nombre: "LUXTER OMEGA 3", depto: "OTC 2", margen: -274.2 },
-  { nombre: "TRUSOPT DORZOLAMIDA", depto: "PAT 3", margen: -261 },
-  { nombre: "PRETERAX PERINDOPRIL", depto: "PAT 3", margen: -245.5 },
-  { nombre: "ARTELAC NIGHTTIME GEL", depto: "PAT 1", margen: -236 },
-  { nombre: "DIPROSPAN HIPAK", depto: "PAT 1", margen: -219.2 },
-  { nombre: "VASCUFLOW DOBESILATO", depto: "PAT 3", margen: -197.4 },
-  { nombre: "PROTEFLOR LACTOBAC.", depto: "OTC 1", margen: -196.1 },
-];
-
-const treemapData = deptoNeto.map(d => ({ name: d.name, size: d.neto, margen: d.margen }));
-
-// ── CUSTOM TOOLTIP ────────────────────────────────────────────────────────
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{ background: "rgba(10,14,26,0.97)", border: "1px solid #1e2d4d", borderRadius: 8, padding: "10px 14px" }}>
-        <p style={{ color: "#9CA3AF", fontSize: 11, marginBottom: 4 }}>{label}</p>
-        {payload.map((p, i) => (
-          <p key={i} style={{ color: p.color || "#00E5C3", fontSize: 13, fontWeight: 700 }}>
-            {p.name}: {typeof p.value === "number" && p.value > 1000 ? `$${p.value.toLocaleString()}` : p.value}
-          </p>
-        ))}
-      </div>
-    );
+  :root {
+    --bg: #070A14;
+    --card: #0D1117;
+    --border: #1E293B;
+    --text: #E2E8F0;
+    --muted: #6B7280;
+    --dim: #374151;
+    --cyan: #00E5C3;
+    --yellow: #FFB800;
+    --red: #FF4757;
+    --purple: #A78BFA;
+    --orange: #FF7F50;
+    --teal: #4ECDC4;
+    --blue: #60A5FA;
   }
-  return null;
-};
 
-// ── TREEMAP CONTENT ───────────────────────────────────────────────────────
-const COLORS_TREE = ["#00E5C3","#FFB800","#FF6B6B","#A78BFA","#4ECDC4","#FF7F50","#60A5FA","#34D399","#F472B6","#FBBF24"];
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 28px 32px;
+  }
 
-// ── MAIN COMPONENT ────────────────────────────────────────────────────────
-export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("overview");
+  /* HEADER */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
+  .header-left .eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+  .dot { width: 8px; height: 8px; background: var(--cyan); border-radius: 50%; box-shadow: 0 0 12px var(--cyan); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  h1 { font-family: 'IBM Plex Sans', sans-serif; font-size: 26px; font-weight: 800; color: #F1F5F9; letter-spacing: -0.5px; }
+  h1 span { color: var(--cyan); }
+  .subtitle { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
 
-  return (
-    <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", background: "#070A14", minHeight: "100vh", color: "#E2E8F0", padding: "28px 24px" }}>
-      
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <div style={{ width: 8, height: 8, background: "#00E5C3", borderRadius: "50%", boxShadow: "0 0 12px #00E5C3" }} />
-            <span style={{ fontSize: 11, color: "#4B5563", letterSpacing: 3, textTransform: "uppercase" }}>Sistema de Inventario</span>
-          </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: "#F1F5F9", letterSpacing: -0.5, margin: 0 }}>
-            Dashboard de Catálogo
-            <span style={{ color: "#00E5C3", marginLeft: 8 }}>Farmacia</span>
-          </h1>
-          <p style={{ color: "#4B5563", fontSize: 12, marginTop: 4, letterSpacing: 1 }}>27 / 02 / 2026 — 4,652 SKUs analizados</p>
-        </div>
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 6, background: "#0D1117", borderRadius: 10, padding: 4, border: "1px solid #1E293B" }}>
-          {["overview", "margenes", "proveedores", "alertas"].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              padding: "7px 16px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontFamily: "inherit",
-              letterSpacing: 1, textTransform: "uppercase", fontWeight: 700,
-              background: activeTab === tab ? "#00E5C3" : "transparent",
-              color: activeTab === tab ? "#070A14" : "#4B5563",
-              transition: "all 0.2s"
-            }}>{tab}</button>
-          ))}
-        </div>
-      </div>
+  /* TABS */
+  .tabs { display: flex; gap: 5px; background: #0D1117; border-radius: 10px; padding: 4px; border: 1px solid var(--border); }
+  .tab { padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer; font-size: 10px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; background: transparent; color: var(--muted); transition: all 0.2s; }
+  .tab.active { background: var(--cyan); color: var(--bg); }
+  .tab:hover:not(.active) { color: var(--text); }
 
-      {/* KPI CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
-        {KPIs.map((k, i) => (
-          <div key={i} style={{
-            background: "linear-gradient(135deg, #0D1117 0%, #111827 100%)",
-            border: `1px solid ${k.color}22`, borderRadius: 14, padding: "20px 22px",
-            position: "relative", overflow: "hidden"
-          }}>
-            <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.04, color: k.color }}>{k.icon}</div>
-            <div style={{ fontSize: 22, color: k.color, fontWeight: 800, marginBottom: 2 }}>{k.icon}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</div>
-            <div style={{ fontSize: 13, color: "#F1F5F9", fontWeight: 600, marginTop: 6 }}>{k.label}</div>
-            <div style={{ fontSize: 10, color: "#4B5563", marginTop: 3, letterSpacing: 1 }}>{k.sub}</div>
-          </div>
-        ))}
-      </div>
+  /* KPI CARDS */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi { background: linear-gradient(135deg, #0D1117, #111827); border-radius: 14px; padding: 20px 22px; position: relative; overflow: hidden; border: 1px solid; }
+  .kpi-icon-bg { position: absolute; top: -20px; right: -20px; font-size: 80px; opacity: 0.04; }
+  .kpi-icon { font-size: 20px; margin-bottom: 6px; }
+  .kpi-val { font-family: 'IBM Plex Sans', sans-serif; font-size: 26px; font-weight: 800; line-height: 1; }
+  .kpi-label { font-size: 13px; font-weight: 600; color: #F1F5F9; margin-top: 6px; }
+  .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; }
 
-      {/* ── TAB: OVERVIEW ─────────────────────────── */}
-      {activeTab === "overview" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: grid; }
+  .grid-2 { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .span-2 { grid-column: 1 / -1; }
 
-          {/* Valor Neto por Departamento */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Valor Neto por Departamento (Top 10)</h3>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={deptoNeto} layout="vertical" margin={{ left: 10, right: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" horizontal={false} />
-                <XAxis type="number" tick={{ fill: "#4B5563", fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 10 }} width={68} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="neto" name="Neto $" radius={[0, 4, 4, 0]}>
-                  {deptoNeto.map((_, i) => <Cell key={i} fill={`hsl(${168 + i * 8}, 80%, ${55 - i * 2}%)`} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; }
+  .card-title { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 18px; }
+  .card-title.red { color: var(--red); }
 
-          {/* Distribución Margen */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Distribución de Márgenes</h3>
-            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-              <ResponsiveContainer width="55%" height={220}>
-                <PieChart>
-                  <Pie data={distribucionMargen} dataKey="count" nameKey="rango" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3}>
-                    {distribucionMargen.map((d, i) => <Cell key={i} fill={d.color} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => [v, "Productos"]} contentStyle={{ background: "#0D1117", border: "1px solid #1E293B" }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ flex: 1 }}>
-                {distribucionMargen.map((d, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
-                      <span style={{ fontSize: 11, color: "#9CA3AF" }}>{d.rango}</span>
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: d.color }}>{d.count.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+  /* CHARTS */
+  .chart-wrap { position: relative; }
 
-          {/* Productos por depto */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}># Productos por Departamento (Top 10)</h3>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={deptoProductos} margin={{ left: 0, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#4B5563", fontSize: 9 }} angle={-35} textAnchor="end" height={50} />
-                <YAxis tick={{ fill: "#4B5563", fontSize: 10 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="count" name="Productos" fill="#FFB800" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+  /* LEGEND */
+  .legend { display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; justify-content: space-between; align-items: center; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-label { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .legend-val { font-size: 12px; font-weight: 700; }
 
-          {/* Rangos de precio */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Distribución Rangos de Precio</h3>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={rangosPrecios} margin={{ left: 0, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-                <XAxis dataKey="rango" tick={{ fill: "#9CA3AF", fontSize: 10 }} />
-                <YAxis tick={{ fill: "#4B5563", fontSize: 10 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="count" name="Productos" radius={[4, 4, 0, 0]}>
-                  {rangosPrecios.map((_, i) => <Cell key={i} fill={`hsl(${270 - i * 30}, 70%, 65%)`} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+  /* STAT ROWS */
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #111827; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { font-size: 11px; color: var(--muted); }
+  .stat-val { font-size: 13px; font-weight: 700; }
 
-      {/* ── TAB: MÁRGENES ─────────────────────────── */}
-      {activeTab === "margenes" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+  /* PROGRESS BARS */
+  .progress-wrap { margin-bottom: 14px; }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .progress-name { font-size: 11px; color: var(--muted); }
+  .progress-pct { font-size: 12px; font-weight: 700; }
+  .progress-track { background: #111827; border-radius: 4px; height: 6px; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
 
-          {/* Margen promedio por depto */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px", gridColumn: "1 / -1" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Margen % Promedio vs Valor Neto por Departamento</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={deptoNeto} margin={{ left: 0, right: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#9CA3AF", fontSize: 10 }} />
-                <YAxis yAxisId="left" tick={{ fill: "#4B5563", fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: "#4B5563", fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 400]} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar yAxisId="left" dataKey="neto" name="Neto $" fill="#00E5C3" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
-                <Bar yAxisId="right" dataKey="margen" name="Margen %" fill="#FFB800" radius={[4, 4, 0, 0]} fillOpacity={0.6} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 9px; color: var(--dim); letter-spacing: 2px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 11px 10px; font-size: 11px; color: var(--text); border-bottom: 1px solid #111827; }
+  td:last-child { border-bottom: none; }
+  tr:last-child td { border-bottom: none; }
+  .badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-block; }
 
-          {/* Stats de margen */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Resumen Márgenes</h3>
-            {[
-              { label: "Margen promedio global", value: "28.2%", color: "#00E5C3" },
-              { label: "Productos margen > 50%", value: "702 SKUs", color: "#A78BFA" },
-              { label: "Productos margen 0–10%", value: "2,010 SKUs", color: "#FF7F50" },
-              { label: "Productos margen negativo", value: "48 SKUs", color: "#FF4757" },
-              { label: "Con descuento activo", value: "294 SKUs", color: "#FFB800" },
-              { label: "Precio tipo FIJO", value: "4,062 SKUs", color: "#4ECDC4" },
-              { label: "Con IVA 16%", value: "1,590 SKUs", color: "#60A5FA" },
-              { label: "Venta a granel habilitada", value: "2,508 SKUs", color: "#34D399" },
-            ].map((item, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #111827" }}>
-                <span style={{ fontSize: 11, color: "#6B7280" }}>{item.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: item.color }}>{item.value}</span>
-              </div>
-            ))}
-          </div>
+  /* ALERT CARDS */
+  .alert-card { border-radius: 14px; padding: 18px 20px; }
+  .alert-icon { font-size: 22px; margin-bottom: 8px; }
+  .alert-val { font-family: 'IBM Plex Sans', sans-serif; font-size: 24px; font-weight: 800; }
+  .alert-title { font-size: 12px; font-weight: 600; color: #E2E8F0; margin-top: 4px; }
+  .alert-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-          {/* Departamentos con mejor margen */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Top Departamentos por Margen %</h3>
-            {[
-              { name: "GAVETA 1", margen: 337.2, count: 28 },
-              { name: "ANT PAT 1", margen: 72.9, count: 53 },
-              { name: "GEN 7", margen: 64.7, count: 138 },
-              { name: "PAT 3", margen: 61.1, count: 142 },
-              { name: "PAT 1", margen: 56.9, count: 141 },
-              { name: "PAT 2", margen: 54.2, count: 125 },
-              { name: "OTC 2", margen: 31.8, count: 191 },
-              { name: "PAÑALES", margen: 31.9, count: 112 },
-            ].map((d, i) => (
-              <div key={i} style={{ marginBottom: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>{d.name} <span style={{ color: "#374151" }}>({d.count} SKUs)</span></span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: d.margen > 100 ? "#FF6B6B" : "#00E5C3" }}>{d.margen}%</span>
-                </div>
-                <div style={{ background: "#111827", borderRadius: 4, height: 5 }}>
-                  <div style={{ width: `${Math.min(d.margen / 3.4, 100)}%`, height: "100%", borderRadius: 4, background: d.margen > 100 ? "#FF6B6B" : "#00E5C3", transition: "width 0.8s ease" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+  /* RECO */
+  .reco { background: var(--bg); border-radius: 10px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; border: 1px solid; }
+  .reco-num { font-size: 20px; font-weight: 800; opacity: 0.35; min-width: 28px; }
+  .reco-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .reco-body { font-size: 11px; color: var(--muted); line-height: 1.5; }
 
-      {/* ── TAB: PROVEEDORES ─────────────────────── */}
-      {activeTab === "proveedores" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20 }}>
+  /* FOOTER */
+  .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #111827; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .footer span { font-size: 10px; color: var(--dim); letter-spacing: 1.5px; }
 
-          {/* Tabla proveedores */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Análisis por Proveedor</h3>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Proveedor", "SKUs", "Valor Neto", "Margen %"].map(h => (
-                    <th key={h} style={{ textAlign: "left", fontSize: 9, color: "#374151", letterSpacing: 2, padding: "6px 8px", borderBottom: "1px solid #1E293B" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {proveedores.sort((a,b) => b.neto - a.neto).map((p, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #0D1117" }}>
-                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#E2E8F0", fontWeight: 700 }}>{p.name}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#9CA3AF" }}>{p.count.toLocaleString()}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#FFB800", fontWeight: 700 }}>${p.neto.toLocaleString()}</td>
-                    <td style={{ padding: "12px 8px" }}>
-                      <span style={{ background: p.margen > 30 ? "#00E5C322" : "#FFB80022", color: p.margen > 30 ? "#00E5C3" : "#FFB800", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>{p.margen}%</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 20, padding: "14px 16px", background: "#070A14", borderRadius: 10, border: "1px solid #1E293B" }}>
-              <p style={{ margin: 0, fontSize: 11, color: "#6B7280", lineHeight: 1.6 }}>
-                <span style={{ color: "#00E5C3", fontWeight: 700 }}>CITYFARMA</span> concentra el <span style={{ color: "#FFB800" }}>59.4%</span> del valor total a pesar de tener menos SKUs, con margen 36.6%.{" "}
-                <span style={{ color: "#A78BFA", fontWeight: 700 }}>FANASA</span> domina en volumen (49% de SKUs) pero con margen más bajo (21.7%).
-              </p>
-            </div>
-          </div>
+  /* INSIGHT BOX */
+  .insight { background: var(--bg); border-radius: 10px; padding: 14px 16px; border: 1px solid var(--border); margin-top: 16px; }
+  .insight p { font-size: 11px; color: var(--muted); line-height: 1.7; }
 
-          {/* Pie de valor neto */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Participación Valor Neto</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={proveedores} dataKey="neto" nameKey="name" cx="50%" cy="50%" outerRadius={85} paddingAngle={4} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
-                  {proveedores.map((_, i) => <Cell key={i} fill={["#00E5C3","#FFB800","#FF6B6B","#A78BFA","#4ECDC4"][i]} />)}
-                </Pie>
-                <Tooltip formatter={(v) => [`$${v.toLocaleString()}`, "Neto"]} contentStyle={{ background: "#0D1117", border: "1px solid #1E293B" }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ marginTop: 20 }}>
-              <h4 style={{ fontSize: 11, color: "#6B7280", letterSpacing: 2, margin: "0 0 12px", textTransform: "uppercase" }}>Resurtido activo</h4>
-              <div style={{ display: "flex", gap: 12 }}>
-                {[{ label: "Activo (V)", val: 4005, color: "#00E5C3" }, { label: "Inactivo (N)", val: 646, color: "#374151" }].map((r, i) => (
-                  <div key={i} style={{ flex: 1, background: "#070A14", borderRadius: 10, padding: "12px 14px", border: `1px solid ${r.color}33` }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: r.color }}>{r.val.toLocaleString()}</div>
-                    <div style={{ fontSize: 10, color: "#4B5563", marginTop: 2 }}>{r.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+  /* PROVIDER GRID */
+  .prov-mini { display: flex; gap: 12px; margin-top: 20px; }
+  .prov-mini-card { flex: 1; background: var(--bg); border-radius: 10px; padding: 12px 14px; border: 1px solid; }
+  .prov-mini-val { font-family: 'IBM Plex Sans', sans-serif; font-size: 22px; font-weight: 800; }
+  .prov-mini-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-      {/* ── TAB: ALERTAS ─────────────────────────── */}
-      {activeTab === "alertas" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2,1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .tabs { flex-wrap: wrap; }
+    .span-2 { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
 
-          {/* Alertas KPI */}
-          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-            {[
-              { label: "Productos margen negativo", val: "48 SKUs", sub: "Precio < Costo", color: "#FF4757", icon: "⚠" },
-              { label: "Sin resurtido (N)", val: "646 SKUs", sub: "No se reabastecen", color: "#FF7F50", icon: "⊘" },
-              { label: "Margen muy bajo (0–10%)", val: "2,010 SKUs", sub: "43% del catálogo", color: "#FFB800", icon: "◈" },
-            ].map((a, i) => (
-              <div key={i} style={{ background: `${a.color}11`, border: `1px solid ${a.color}44`, borderRadius: 14, padding: "18px 20px" }}>
-                <div style={{ fontSize: 24, marginBottom: 6 }}>{a.icon}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: a.color }}>{a.val}</div>
-                <div style={{ fontSize: 12, color: "#E2E8F0", fontWeight: 600, marginTop: 4 }}>{a.label}</div>
-                <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>{a.sub}</div>
-              </div>
-            ))}
-          </div>
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="eyebrow"><div class="dot"></div> Sistema de Inventario</div>
+    <h1>Dashboard de Catálogo <span>Farmacia</span></h1>
+    <p class="subtitle">27 / 02 / 2026 — 4,652 SKUs analizados</p>
+  </div>
+  <div class="tabs" id="tabBar">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('margenes')">Márgenes</button>
+    <button class="tab" onclick="switchTab('proveedores')">Proveedores</button>
+    <button class="tab" onclick="switchTab('alertas')">Alertas</button>
+  </div>
+</div>
 
-          {/* Tabla productos margen negativo */}
-          <div style={{ background: "#0D1117", border: "1px solid #FF475722", borderRadius: 14, padding: "22px 24px", gridColumn: "1 / -1" }}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 12, color: "#FF4757", letterSpacing: 2, textTransform: "uppercase" }}>
-              ⚠ Productos con Margen Negativo — Pérdida Potencial
-            </h3>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Producto", "Departamento", "Margen %", "Acción Recomendada"].map(h => (
-                    <th key={h} style={{ textAlign: "left", fontSize: 9, color: "#374151", letterSpacing: 2, padding: "6px 10px", borderBottom: "1px solid #1E293B" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {margenNegativo.map((p, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #111827" }}>
-                    <td style={{ padding: "10px", fontSize: 11, color: "#E2E8F0" }}>{p.nombre}</td>
-                    <td style={{ padding: "10px", fontSize: 11, color: "#6B7280" }}>{p.depto}</td>
-                    <td style={{ padding: "10px" }}>
-                      <span style={{ background: "#FF475722", color: "#FF4757", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>{p.margen}%</span>
-                    </td>
-                    <td style={{ padding: "10px", fontSize: 10, color: "#6B7280" }}>
-                      {p.margen < -200 ? "🔴 Revisar precio de compra urgente" : p.margen < -100 ? "🟠 Renegociar con proveedor" : "🟡 Ajustar precio de venta"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+<!-- KPIs -->
+<div class="kpis">
+  <div class="kpi" style="border-color:#00E5C322;">
+    <div class="kpi-icon-bg" style="color:var(--cyan)">◈</div>
+    <div class="kpi-icon" style="color:var(--cyan)">◈</div>
+    <div class="kpi-val" style="color:var(--cyan)">4,652</div>
+    <div class="kpi-label">Total Productos</div>
+    <div class="kpi-sub">en catálogo</div>
+  </div>
+  <div class="kpi" style="border-color:#FFB80022;">
+    <div class="kpi-icon-bg" style="color:var(--yellow)">⬡</div>
+    <div class="kpi-icon" style="color:var(--yellow)">⬡</div>
+    <div class="kpi-val" style="color:var(--yellow)">$497,564</div>
+    <div class="kpi-label">Valor Neto Total</div>
+    <div class="kpi-sub">suma precio neto</div>
+  </div>
+  <div class="kpi" style="border-color:#FF6B6B22;">
+    <div class="kpi-icon-bg" style="color:var(--red)">◆</div>
+    <div class="kpi-icon" style="color:var(--red)">◆</div>
+    <div class="kpi-val" style="color:var(--red)">28.2%</div>
+    <div class="kpi-label">Margen Promedio</div>
+    <div class="kpi-sub">sobre precio</div>
+  </div>
+  <div class="kpi" style="border-color:#A78BFA22;">
+    <div class="kpi-icon-bg" style="color:var(--purple)">◉</div>
+    <div class="kpi-icon" style="color:var(--purple)">◉</div>
+    <div class="kpi-val" style="color:var(--purple)">$128.26</div>
+    <div class="kpi-label">Precio Promedio</div>
+    <div class="kpi-sub">por producto</div>
+  </div>
+</div>
 
-          {/* Recomendaciones */}
-          <div style={{ background: "#0D1117", border: "1px solid #1E293B", borderRadius: 14, padding: "22px 24px", gridColumn: "1 / -1" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 12, color: "#9CA3AF", letterSpacing: 2, textTransform: "uppercase" }}>Recomendaciones Estratégicas</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {[
-                { icon: "01", title: "Optimizar ABARROTES", body: "554 SKUs con margen promedio de solo 13.7%. Revisar estructura de costos o reducir catálogo.", color: "#FFB800" },
-                { icon: "02", title: "Potenciar PAT 1-3", body: "Mayor valor neto ($147k) y margen sólido (56-61%). Priorizar surtido y visibilidad.", color: "#00E5C3" },
-                { icon: "03", title: "Revisar GAVETA 1", body: "Margen de 337% anómalo en 28 productos. Validar si es correcto o hay error de datos.", color: "#FF6B6B" },
-                { icon: "04", title: "Negociar con FANASA", body: "49% del catálogo pero solo 21.7% margen. Renegociar condiciones comerciales.", color: "#A78BFA" },
-              ].map((r, i) => (
-                <div key={i} style={{ background: "#070A14", borderRadius: 10, padding: "16px 18px", border: `1px solid ${r.color}22`, display: "flex", gap: 14 }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: r.color, opacity: 0.4, minWidth: 28 }}>{r.icon}</div>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: r.color, marginBottom: 4 }}>{r.title}</div>
-                    <div style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.5 }}>{r.body}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #111827", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 10, color: "#1E293B", letterSpacing: 2 }}>CATÁLOGO · 27022026.CSV · 4,652 REGISTROS</span>
-        <div style={{ display: "flex", gap: 16 }}>
-          {[
-            { label: "IVA 16%", val: "1,590 SKUs" },
-            { label: "Sin IVA", val: "3,062 SKUs" },
-            { label: "Con descuento", val: "294 SKUs" },
-          ].map((s, i) => (
-            <span key={i} style={{ fontSize: 10, color: "#374151" }}>{s.label}: <span style={{ color: "#4B5563" }}>{s.val}</span></span>
-          ))}
-        </div>
+<!-- ── PANEL OVERVIEW ── -->
+<div class="panel grid-2 active" id="panel-overview">
+  <div class="card">
+    <div class="card-title">Valor Neto por Departamento (Top 10)</div>
+    <div class="chart-wrap"><canvas id="chartNetoDepto" height="280"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Distribución de Márgenes</div>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <div style="flex:0 0 200px;"><canvas id="chartMargenPie" height="200"></canvas></div>
+      <div class="legend" style="flex:1">
+        <div class="legend-item"><div class="legend-label"><div class="legend-dot" style="background:#FF4757"></div>Negativo</div><div class="legend-val" style="color:#FF4757">48</div></div>
+        <div class="legend-item"><div class="legend-label"><div class="legend-dot" style="background:#FF7F50"></div>0–10%</div><div class="legend-val" style="color:#FF7F50">2,010</div></div>
+        <div class="legend-item"><div class="legend-label"><div class="legend-dot" style="background:#FFB800"></div>10–20%</div><div class="legend-val" style="color:#FFB800">785</div></div>
+        <div class="legend-item"><div class="legend-label"><div class="legend-dot" style="background:#00E5C3"></div>20–30%</div><div class="legend-val" style="color:#00E5C3">536</div></div>
+        <div class="legend-item"><div class="legend-label"><div class="legend-dot" style="background:#4ECDC4"></div>30–50%</div><div class="legend-val" style="color:#4ECDC4">571</div></div>
+        <div class="legend-item"><div class="legend-label"><div class="legend-dot" style="background:#A78BFA"></div>&gt; 50%</div><div class="legend-val" style="color:#A78BFA">702</div></div>
       </div>
     </div>
-  );
+  </div>
+  <div class="card">
+    <div class="card-title"># Productos por Departamento (Top 10)</div>
+    <div class="chart-wrap"><canvas id="chartProdDepto" height="240"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Distribución Rangos de Precio</div>
+    <div class="chart-wrap"><canvas id="chartRangoPrecio" height="240"></canvas></div>
+  </div>
+</div>
+
+<!-- ── PANEL MÁRGENES ── -->
+<div class="panel grid-2" id="panel-margenes">
+  <div class="card span-2">
+    <div class="card-title">Margen % Promedio vs Valor Neto por Departamento</div>
+    <div class="chart-wrap"><canvas id="chartDual" height="260"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Resumen Márgenes</div>
+    <div class="stat-row"><span class="stat-label">Margen promedio global</span><span class="stat-val" style="color:var(--cyan)">28.2%</span></div>
+    <div class="stat-row"><span class="stat-label">Productos margen &gt; 50%</span><span class="stat-val" style="color:var(--purple)">702 SKUs</span></div>
+    <div class="stat-row"><span class="stat-label">Productos margen 0–10%</span><span class="stat-val" style="color:var(--orange)">2,010 SKUs</span></div>
+    <div class="stat-row"><span class="stat-label">Productos margen negativo</span><span class="stat-val" style="color:var(--red)">48 SKUs</span></div>
+    <div class="stat-row"><span class="stat-label">Con descuento activo</span><span class="stat-val" style="color:var(--yellow)">294 SKUs</span></div>
+    <div class="stat-row"><span class="stat-label">Precio tipo FIJO</span><span class="stat-val" style="color:var(--teal)">4,062 SKUs</span></div>
+    <div class="stat-row"><span class="stat-label">Con IVA 16%</span><span class="stat-val" style="color:var(--blue)">1,590 SKUs</span></div>
+    <div class="stat-row"><span class="stat-label">Venta a granel habilitada</span><span class="stat-val" style="color:#34D399">2,508 SKUs</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Top Departamentos por Margen %</div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">GAVETA 1 (28 SKUs)</span><span class="progress-pct" style="color:var(--red)">337.2%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:100%;background:var(--red)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">ANT PAT 1 (53 SKUs)</span><span class="progress-pct" style="color:var(--cyan)">72.9%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:22%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">GEN 7 (138 SKUs)</span><span class="progress-pct" style="color:var(--cyan)">64.7%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:19%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">PAT 3 (142 SKUs)</span><span class="progress-pct" style="color:var(--cyan)">61.1%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:18%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">PAT 1 (141 SKUs)</span><span class="progress-pct" style="color:var(--cyan)">56.9%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:17%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">PAT 2 (125 SKUs)</span><span class="progress-pct" style="color:var(--cyan)">54.2%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:16%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">PAÑALES (112 SKUs)</span><span class="progress-pct" style="color:var(--yellow)">31.9%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:9%;background:var(--yellow)"></div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-header"><span class="progress-name">OTC 2 (191 SKUs)</span><span class="progress-pct" style="color:var(--yellow)">31.8%</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:9%;background:var(--yellow)"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PANEL PROVEEDORES ── -->
+<div class="panel grid-2" id="panel-proveedores">
+  <div class="card" style="grid-column: 1 / 2">
+    <div class="card-title">Análisis por Proveedor</div>
+    <table>
+      <thead><tr><th>Proveedor</th><th>SKUs</th><th>Valor Neto</th><th>Margen %</th></tr></thead>
+      <tbody>
+        <tr><td><strong>CITYFARMA</strong></td><td style="color:var(--muted)">1,811</td><td style="color:var(--yellow);font-weight:700">$295,699</td><td><span class="badge" style="background:#00E5C322;color:var(--cyan)">36.6%</span></td></tr>
+        <tr><td><strong>FANASA</strong></td><td style="color:var(--muted)">2,272</td><td style="color:var(--yellow);font-weight:700">$149,056</td><td><span class="badge" style="background:#FFB80022;color:var(--yellow)">21.7%</span></td></tr>
+        <tr><td><strong>NADRO</strong></td><td style="color:var(--muted)">398</td><td style="color:var(--yellow);font-weight:700">$37,405</td><td><span class="badge" style="background:#00E5C322;color:var(--cyan)">26.9%</span></td></tr>
+        <tr><td><strong>ROSARIO</strong></td><td style="color:var(--muted)">35</td><td style="color:var(--yellow);font-weight:700">$2,464</td><td><span class="badge" style="background:#00E5C322;color:var(--cyan)">34.7%</span></td></tr>
+        <tr><td><strong>FL</strong></td><td style="color:var(--muted)">30</td><td style="color:var(--yellow);font-weight:700">$1,970</td><td><span class="badge" style="background:#FFB80022;color:var(--yellow)">19.4%</span></td></tr>
+      </tbody>
+    </table>
+    <div class="insight">
+      <p><span style="color:var(--cyan);font-weight:700">CITYFARMA</span> concentra el <span style="color:var(--yellow)">59.4%</span> del valor total con solo 39% de los SKUs y margen de 36.6%. <span style="color:var(--purple);font-weight:700">FANASA</span> domina en volumen (49% de SKUs) pero con margen más bajo (21.7%) — oportunidad de negociación.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Participación Valor Neto</div>
+    <canvas id="chartProvPie" height="220"></canvas>
+    <div class="card-title" style="margin-top:20px;">Resurtido activo</div>
+    <div class="prov-mini">
+      <div class="prov-mini-card" style="border-color:var(--cyan)33">
+        <div class="prov-mini-val" style="color:var(--cyan)">4,005</div>
+        <div class="prov-mini-label">Activo (V)</div>
+      </div>
+      <div class="prov-mini-card" style="border-color:var(--dim)">
+        <div class="prov-mini-val" style="color:var(--dim)">646</div>
+        <div class="prov-mini-label">Inactivo (N)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PANEL ALERTAS ── -->
+<div class="panel" id="panel-alertas" style="display:none;">
+  <div class="grid-3" style="margin-bottom:20px;">
+    <div class="alert-card" style="background:#FF475711;border:1px solid #FF475744;">
+      <div class="alert-icon">⚠</div>
+      <div class="alert-val" style="color:var(--red)">48 SKUs</div>
+      <div class="alert-title">Productos margen negativo</div>
+      <div class="alert-sub">Precio de venta &lt; Costo</div>
+    </div>
+    <div class="alert-card" style="background:#FF7F5011;border:1px solid #FF7F5044;">
+      <div class="alert-icon">⊘</div>
+      <div class="alert-val" style="color:var(--orange)">646 SKUs</div>
+      <div class="alert-title">Sin resurtido (N)</div>
+      <div class="alert-sub">No se reabastecen</div>
+    </div>
+    <div class="alert-card" style="background:#FFB80011;border:1px solid #FFB80044;">
+      <div class="alert-icon">◈</div>
+      <div class="alert-val" style="color:var(--yellow)">2,010 SKUs</div>
+      <div class="alert-title">Margen muy bajo (0–10%)</div>
+      <div class="alert-sub">43% del catálogo activo</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:20px;border-color:#FF475722;">
+    <div class="card-title red">⚠ Productos con Margen Negativo — Pérdida Potencial</div>
+    <table>
+      <thead><tr><th>Producto</th><th>Departamento</th><th>Margen %</th><th>Acción Recomendada</th></tr></thead>
+      <tbody>
+        <tr><td>SERETIDE DISKUS SALMETEROL</td><td style="color:var(--muted)">GAVETA 1</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−345%</span></td><td style="color:var(--muted);font-size:10px">🔴 Revisar precio de compra urgente</td></tr>
+        <tr><td>LUXTER OMEGA 3</td><td style="color:var(--muted)">OTC 2</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−274%</span></td><td style="color:var(--muted);font-size:10px">🔴 Revisar precio de compra urgente</td></tr>
+        <tr><td>TRUSOPT DORZOLAMIDA 2%</td><td style="color:var(--muted)">PAT 3</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−261%</span></td><td style="color:var(--muted);font-size:10px">🔴 Revisar precio de compra urgente</td></tr>
+        <tr><td>PRETERAX PERINDOPRIL</td><td style="color:var(--muted)">PAT 3</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−245%</span></td><td style="color:var(--muted);font-size:10px">🔴 Revisar precio de compra urgente</td></tr>
+        <tr><td>ARTELAC NIGHTTIME GEL</td><td style="color:var(--muted)">PAT 1</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−236%</span></td><td style="color:var(--muted);font-size:10px">🟠 Renegociar con proveedor</td></tr>
+        <tr><td>DIPROSPAN HIPAK BETAMETASONA</td><td style="color:var(--muted)">PAT 1</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−219%</span></td><td style="color:var(--muted);font-size:10px">🟠 Renegociar con proveedor</td></tr>
+        <tr><td>VASCUFLOW DOBESILATO</td><td style="color:var(--muted)">PAT 3</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−197%</span></td><td style="color:var(--muted);font-size:10px">🟠 Renegociar con proveedor</td></tr>
+        <tr><td>PROTEFLOR LACTOBACILLUS</td><td style="color:var(--muted)">OTC 1</td><td><span class="badge" style="background:#FF475722;color:var(--red)">−196%</span></td><td style="color:var(--muted);font-size:10px">🟡 Ajustar precio de venta</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Recomendaciones Estratégicas</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+      <div class="reco" style="border-color:#FFB80022;">
+        <div class="reco-num" style="color:var(--yellow)">01</div>
+        <div><div class="reco-title" style="color:var(--yellow)">Optimizar ABARROTES</div><div class="reco-body">554 SKUs con margen promedio de solo 13.7%. Revisar estructura de costos o reducir catálogo.</div></div>
+      </div>
+      <div class="reco" style="border-color:#00E5C322;">
+        <div class="reco-num" style="color:var(--cyan)">02</div>
+        <div><div class="reco-title" style="color:var(--cyan)">Potenciar PAT 1-3</div><div class="reco-body">Mayor valor neto ($147k) y margen sólido del 54–61%. Priorizar surtido y visibilidad.</div></div>
+      </div>
+      <div class="reco" style="border-color:#FF6B6B22;">
+        <div class="reco-num" style="color:var(--red)">03</div>
+        <div><div class="reco-title" style="color:var(--red)">Revisar GAVETA 1</div><div class="reco-body">Margen de 337% anómalo en 28 productos. Validar si es correcto o hay error de datos.</div></div>
+      </div>
+      <div class="reco" style="border-color:#A78BFA22;">
+        <div class="reco-num" style="color:var(--purple)">04</div>
+        <div><div class="reco-title" style="color:var(--purple)">Negociar con FANASA</div><div class="reco-body">49% del catálogo pero solo 21.7% de margen. Renegociar condiciones comerciales.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <span>CATÁLOGO · 27022026.CSV · 4,652 REGISTROS</span>
+  <div style="display:flex;gap:20px;">
+    <span>IVA 16%: <span style="color:#4B5563">1,590 SKUs</span></span>
+    <span>Sin IVA: <span style="color:#4B5563">3,062 SKUs</span></span>
+    <span>Con descuento: <span style="color:#4B5563">294 SKUs</span></span>
+  </div>
+</div>
+
+<script>
+// ── TAB SWITCHING ─────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+  event.target.classList.add('active');
+  const panel = document.getElementById('panel-' + name);
+  panel.style.display = 'grid';
+  panel.classList.add('active');
+  if (name === 'alertas') panel.style.display = 'block';
 }
+
+// ── CHART DEFAULTS ────────────────────────────────────────────
+Chart.defaults.color = '#6B7280';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const gridColor = '#1E293B';
+const tooltip = {
+  backgroundColor: 'rgba(10,14,26,0.97)',
+  borderColor: '#1E293B',
+  borderWidth: 1,
+  titleColor: '#9CA3AF',
+  bodyColor: '#E2E8F0',
+  padding: 10,
+};
+
+// ── CHART 1: Neto por Depto (horizontal bar) ──────────────────
+new Chart(document.getElementById('chartNetoDepto'), {
+  type: 'bar',
+  data: {
+    labels: ['PAT 3','PAT 1','PAT 2','GAVETA 1','OTC 2','OTC 3','DAMA','ANT PAT 1','GEN 7','PAÑALES'],
+    datasets: [{
+      label: 'Valor Neto $',
+      data: [51550, 48157, 47200, 33055, 29865, 21953, 21182, 18645, 17383, 17264],
+      backgroundColor: ['#00E5C3','#00D4B4','#00C3A5','#00B296','#00A187','#009078','#007F69','#006E5A','#005D4B','#004C3C'],
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { callback: v => `$${(v/1000).toFixed(0)}k` } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// ── CHART 2: Margen Pie ───────────────────────────────────────
+new Chart(document.getElementById('chartMargenPie'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Negativo','0–10%','10–20%','20–30%','30–50%','> 50%'],
+    datasets: [{
+      data: [48, 2010, 785, 536, 571, 702],
+      backgroundColor: ['#FF4757','#FF7F50','#FFB800','#00E5C3','#4ECDC4','#A78BFA'],
+      borderWidth: 2,
+      borderColor: '#070A14',
+    }]
+  },
+  options: {
+    cutout: '62%',
+    plugins: { legend: { display: false }, tooltip }
+  }
+});
+
+// ── CHART 3: Productos por Depto ──────────────────────────────
+new Chart(document.getElementById('chartProdDepto'), {
+  type: 'bar',
+  data: {
+    labels: ['ABARROTES','CURACION','MOSTRADOR','REFRI B','CABALLERO','OTC 2','DAMA','OTC 3','OTC 4','PANEL 2'],
+    datasets: [{
+      label: 'Productos',
+      data: [554, 373, 298, 206, 191, 191, 189, 185, 183, 148],
+      backgroundColor: '#FFB800',
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip },
+    scales: {
+      x: { grid: { display: false }, ticks: { maxRotation: 35 } },
+      y: { grid: { color: gridColor } }
+    }
+  }
+});
+
+// ── CHART 4: Rangos de precio ─────────────────────────────────
+new Chart(document.getElementById('chartRangoPrecio'), {
+  type: 'bar',
+  data: {
+    labels: ['< $10','$10–50','$50–100','$100–500','> $500'],
+    datasets: [{
+      label: 'Productos',
+      data: [175, 1739, 898, 1097, 200],
+      backgroundColor: ['#A78BFA','#8B6FE8','#7053D5','#5437C2','#381BAF'],
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip },
+    scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: gridColor } }
+    }
+  }
+});
+
+// ── CHART 5: Dual (Neto + Margen) ────────────────────────────
+new Chart(document.getElementById('chartDual'), {
+  type: 'bar',
+  data: {
+    labels: ['PAT 3','PAT 1','PAT 2','GAVETA 1','OTC 2','OTC 3','DAMA','ANT PAT 1','GEN 7','PAÑALES'],
+    datasets: [
+      { label: 'Neto $', data: [51550,48157,47200,33055,29865,21953,21182,18645,17383,17264], backgroundColor: '#00E5C3CC', borderRadius: 4, yAxisID: 'y' },
+      { label: 'Margen %', data: [61.1,56.9,54.2,337.2,31.8,27.0,21.9,72.9,64.7,31.9], backgroundColor: '#FFB800AA', borderRadius: 4, yAxisID: 'y2' }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#9CA3AF' } }, tooltip },
+    scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: gridColor }, ticks: { callback: v => `$${(v/1000).toFixed(0)}k` }, position: 'left' },
+      y2: { grid: { display: false }, ticks: { callback: v => `${v}%` }, position: 'right' }
+    }
+  }
+});
+
+// ── CHART 6: Proveedores Pie ──────────────────────────────────
+new Chart(document.getElementById('chartProvPie'), {
+  type: 'pie',
+  data: {
+    labels: ['CITYFARMA','FANASA','NADRO','ROSARIO','FL'],
+    datasets: [{
+      data: [295699, 149056, 37405, 2464, 1970],
+      backgroundColor: ['#00E5C3','#FFB800','#FF6B6B','#A78BFA','#4ECDC4'],
+      borderWidth: 2,
+      borderColor: '#070A14',
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#9CA3AF', padding: 12, font: { size: 10 } } },
+      tooltip: { ...tooltip, callbacks: { label: ctx => ` ${ctx.label}: $${ctx.raw.toLocaleString()}` } }
+    }
+  }
+});
+</script>
+</body>
+</html>
